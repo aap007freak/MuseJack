@@ -1,3 +1,7 @@
 .idea
 .venv
-musejack/pycache
+musejack/__pycache__
+dist
+sdist
+build
+main.spec

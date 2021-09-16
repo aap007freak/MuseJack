@@ -2,16 +2,17 @@
 name = "musejack"
 version = "0.1.0"
 description = ""
-authors = ["= <=>"]
+authors = ["Anton Leagre <anton.leagre@hotmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
 opencv-python = "^4.5.3.56"
 JACK-Client = "^0.5.3"
-SoundFile = "^0.10.3-post.1"
+SoundFile = "^0.10.3"
 
 [tool.poetry.dev-dependencies]
+pyinstaller = "^4.5.1"
 
 [build-system]
 requires = ["poetry-core"]
