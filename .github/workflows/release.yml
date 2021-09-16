@@ -36,11 +36,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
-            TARGET: macos
-            CMD_BUILD: poetry run pyinstaller -F -n MuseJack -i resources/clipster.icns musejack/main.py && cd dist/ && zip -r9 MuseJack MuseJack.app/
-            OUT_FILE_NAME: MuseJack.zip
-            ASSET_MIME: application/zip
+          #- os: macos-latest
+            #TARGET: macos
+            #CMD_BUILD: poetry run pyinstaller -F -n MuseJack -i resources/clipster.icns musejack/main.py && cd dist/ && zip -r9 MuseJack MuseJack.app/
+            #OUT_FILE_NAME: MuseJack.zip
+            #ASSET_MIME: application/zip
           - os: windows-latest
             TARGET: windows
             CMD_BUILD: poetry run pyinstaller -F -n MuseJack -i resources/clipster.ico musejack/main.py
