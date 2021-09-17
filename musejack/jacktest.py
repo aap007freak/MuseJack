@@ -11,6 +11,7 @@ from threading import Thread
 import cv2
 import jack
 
+from musejack.players import Video, Audio
 
 print('setting error/info functions')
 
@@ -27,8 +28,7 @@ def info(msg):
 
 print('starting chatty client')
 
-client = jack.Client('Video-Client',
-                     no_start_server=False, servername="(default)")
+client = jack.Client('Video-Client')
 
 if client.status.server_started:
     print('JACK server was started')
@@ -85,17 +85,16 @@ class Player:
         self.total_frames_amount = round(self.vcap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.audio_frames_per_video_frame = self.audio_frame_rate / self.fps
 
-        #text variable do draw extra stuff on the video
+        # text variable do draw extra stuff on the video
         self.text = None
-        self.text_frame = 0 # how long the text has been on the screen
-        self.text_frames_max = self.fps * 1.5 #by default, 1.5 seconds
+        self.text_frame = 0  # how long the text has been on the screen
+        self.text_frames_max = self.fps * 1.5  # by default, 1.5 seconds
 
         # other state variables:
         self.new_frame_needed = False
         self.on_frame = 0
         self.previous_frame = 0
         self.seek_requested = -1
-
 
         # start the playloop
         Thread(target=self.loop).start()
@@ -160,16 +159,14 @@ class Player:
         while True:
             self.render()
 
-
-
-
     def stop(self):
         self.vcap.release()
         cv2.destroyAllWindows()
 
 
 current_state = -1
-player = Player("the_box.mp4")
+player = Video(client, "the_box.mp4")
+music = Audio(client, "Orch.wav")
 
 
 @client.set_timebase_callback
@@ -180,17 +177,29 @@ def callback(state: int, blocksize: int, position, new_pos: bool) -> None:
         print(f"new state {state}")
         if state == jack.ROLLING:
             print(f"seeking to audio frame {position.frame}")
-            player.seek(position.frame, is_audio_frame=True)
+            player._seek(position.frame)
+            music._seek(position.frame)
 
         current_state = state
 
-    player.step(position.frame)
+    player._step(position.frame)
+    music._step(position.frame)
 
 
 def start_jack():
     print('activating JACK')
     try:
         with client:
+            # add ourselves to every target port
+            target_ports = client.get_ports(
+                is_physical=True, is_input=True, is_audio=True)
+            if len(client.outports) == 1 and len(target_ports) > 1:
+                # Connect mono file to stereo output
+                client.outports[0].connect(target_ports[0])
+                client.outports[0].connect(target_ports[1])
+            else:
+                for source, target in zip(client.outports, target_ports):
+                    source.connect(target)
             print('#' * 80)
             print('press Return to quit')
             print('#' * 80)
@@ -199,11 +208,11 @@ def start_jack():
     except Exception as e:
         print(e)
 
+
 class TextField:
     """
 
     """
-
 
     def __init__(self, text="Hello World", middle=(200, 200), duration=60):
         self.duration = duration
@@ -219,33 +228,30 @@ class TextField:
 
         txt_size = cv2.getTextSize(text, self.font_face, self.scale, self.thickness)
 
-        #from the middle coordinates, get the start and end coordinates
-        self.start_x = round(middle[0] + txt_size[0][0]/2 )
-        self.start_y = round(middle[1] - txt_size[0][1]/2)
-        self.end_x = middle[0] + txt_size[0][0]/2
-        self.end_y = middle[1] - txt_size[0][1]/2
-
-
+        # from the middle coordinates, get the start and end coordinates
+        self.start_x = round(middle[0] + txt_size[0][0] / 2)
+        self.start_y = round(middle[1] - txt_size[0][1] / 2)
+        self.end_x = middle[0] + txt_size[0][0] / 2
+        self.end_y = middle[1] - txt_size[0][1] / 2
 
     @staticmethod
-    def normal(text, frame_width, offset_width = 0, offset_height = 0):
+    def normal(text, frame_width, offset_width=0, offset_height=0):
         # we want the start height to be
-        return TextField(text, middle=((frame_width + offset_width)/2, 200 + offset_height))
+        return TextField(text, middle=((frame_width + offset_width) / 2, 200 + offset_height))
 
     @staticmethod
-    def center(text, frame_width, frame_height, offset_width = 0, offset_height = 0):
+    def center(text, frame_width, frame_height, offset_width=0, offset_height=0):
         return TextField(text, middle=((frame_width + offset_width) / 2, (frame_height + offset_height) / 2))
 
     def draw(self, image):
         self.drawn_frames += 1
-        cv2.putText(image, self.text, (self.start_x, self.start_y), self.font_face, self.scale, self.color, 1, cv2.LINE_AA)
+        cv2.putText(image, self.text, (self.start_x, self.start_y), self.font_face, self.scale, self.color, 1,
+                    cv2.LINE_AA)
 
     def done(self) -> bool:
         if self.drawn_frames > self.duration:
             return True
         return False
-
-
 
 
 start_jack()

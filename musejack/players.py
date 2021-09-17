@@ -1,7 +1,11 @@
-from enum import Enum, auto
+import asyncio
+import queue
+from enum import Enum
 from threading import Thread
 
 import cv2.cv2 as cv2
+import soundfile
+from jack import Client
 
 
 class State(Enum):
@@ -16,42 +20,53 @@ def realtime(f):
 
 class AbstractPlayer(Thread):
     """
-    Helper class to abstract some of the Logic
+    Helper class to abstract some of the player logic
     """
 
-    def __init__(self, total_frames, frame_rate=60, jack_frame_rate=44100):
+    def __init__(self, client: Client, total_frames, frame_rate=60):
 
         super().__init__(target=self.loop)
+
+        self.client = client
         self.total_frames = total_frames
 
-        self.jack_frame_rate = jack_frame_rate
+        self.jack_frame_rate = client.samplerate
         self.frame_rate = frame_rate
 
-        self.jack_frames_per_frame = jack_frame_rate / frame_rate
+        self.jack_frames_per_frame = client.samplerate / frame_rate
 
         self.on_frame = 0
         self.previous_frame = None
+
+        self.text = None
 
         # flags
         self.status = State.PAUSED
         self.frame_requested = False
         self.seek_requested = -1
 
+    def seek(self, oldPos, newPos):
+        """
+        arguments both in own frames
+        """
+        pass
+
     def frame(self):
         pass  # this should be implemented by child classes
 
     def pause_frame(self):
-        pass
+        pass  # this should be implemented by child classes
 
     def loop(self):
         while True:
-            if self.frame_requested and (not self.status is State.STOPPED):
+            if self.frame_requested and self.status is not State.STOPPED:
                 self.frame_requested = False
 
                 # check if a seek was requested
-                seek_to = self.seek_requested
-                if seek_to != -1:
-                    self.on_frame = seek_to  # if seek requested, set on_frame to the requested seek
+                if self.seek_requested != -1:
+                    self.seek(self.on_frame, self.seek_requested)
+                    self.on_frame = self.seek_requested  # if seek requested, set on_frame to the requested seek
+                    self.seek_requested = -1
                 else:
                     self.on_frame += 1  # else increment by one
 
@@ -70,10 +85,10 @@ class AbstractPlayer(Thread):
             self.frame_requested = True
 
     @realtime
-    def seek(self, jack_frame):
-        self.seek_requested = jack_frame / self.jack_frames_per_frame
+    def _seek(self, jack_frame):
+        self.seek_requested = round(jack_frame / self.jack_frames_per_frame)
         self.frame_requested = True
-        self.play() # if seeking, automatically start playing
+        self.play()  # if seeking, automatically start playing
 
     def pause(self):
         self.status = State.PAUSED
@@ -85,15 +100,58 @@ class AbstractPlayer(Thread):
         self.status = State.STOPPED
 
 
+class Audio(AbstractPlayer):
+
+    def __init__(self, client, audio_file_name, buffer_size=20):
+        # todo what if the jack samplerate isn't the same as te audio file sample rate?
+        self.buffer_size = buffer_size
+        self.jack_block_size = client.blocksize
+
+        self.queue = asyncio.Queue()
+
+        # read some data from the soundfile
+        self.audio_file_name = audio_file_name
+
+        sf = soundfile.SoundFile(self.audio_file_name)
+        fr = client.blocksize * self.buffer_size / client.samplerate
+        super().__init__(client=client,
+                         total_frames=sf.frames,
+                         frame_rate=fr)
+
+        self.block_generator = sf.blocks(blocksize=client.blocksize,
+                                         dtype="float32",
+                                         always_2d=True,
+                                         fill_value=0)
+
+        # register some ports for audio
+        for channel in range(sf.channels):
+            client.outports.register(f'out_{channel + 1}')
+
+        self.start()
+
+    def seek(self, oldPos, newPos):
+        pass
+
+    def frame(self):
+        data = self.block_generator.__next__()
+        if data is None:
+            self.stop()  # Playback is finished
+        else:
+            for channel, port in zip(data.T, self.client.outports):
+                port.get_array()[:] = channel
+
+    def pause_frame(self):
+        pass  # do nothing on pause frame
+
+
 class Video(AbstractPlayer):
 
-    def __init__(self, video_file_name, jack_frame_rate=44100):
+    def __init__(self, client, video_file_name):
 
         self.vcap = cv2.VideoCapture(video_file_name)
 
-        super().__init__(frame_rate=round(self.vcap.get(cv2.CAP_PROP_FPS)),
-                         total_frames=round(self.vcap.get(cv2.CAP_PROP_FRAME_COUNT)),
-                         jack_frame_rate=jack_frame_rate)
+        super().__init__(client=client, frame_rate=round(self.vcap.get(cv2.CAP_PROP_FPS)),
+                         total_frames=round(self.vcap.get(cv2.CAP_PROP_FRAME_COUNT)), )
 
         # we keep the last frame drawn in memory for pausing
         self.last_frame = None
@@ -101,13 +159,10 @@ class Video(AbstractPlayer):
         # we always need to call this start loop at the end of the __init__ method
         self.start()
 
-    def seek(self, jack_frame):
-        # we override the seek method, to be able to tell cv2 that we switched frame order
-        super().seek(jack_frame)
-        self.vcap.set(cv2.CAP_PROP_POS_FRAMES, self.seek_requested)
+    def seek(self, oldPos, newPos):
+        self.vcap.set(cv2.CAP_PROP_POS_FRAMES, newPos)
 
     def frame(self):
-        print("called 60 times a second")
         ret, frame = self.vcap.read()
         if ret:
             # Display the resulting frame
