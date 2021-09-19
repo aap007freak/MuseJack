@@ -166,7 +166,7 @@ class Player:
 
 current_state = -1
 player = Video(client, "the_box.mp4")
-music = Audio(client, "Orch.wav")
+#music = Audio(client, "Orch.wav")
 
 
 @client.set_timebase_callback
@@ -178,12 +178,12 @@ def callback(state: int, blocksize: int, position, new_pos: bool) -> None:
         if state == jack.ROLLING:
             print(f"seeking to audio frame {position.frame}")
             player._seek(position.frame)
-            music._seek(position.frame)
+            #music._seek(position.frame)
 
         current_state = state
 
     player._step(position.frame)
-    music._step(position.frame)
+    #music._step(position.frame)
 
 
 def start_jack():

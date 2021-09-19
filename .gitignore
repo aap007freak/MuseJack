@@ -5,3 +5,4 @@ dist
 sdist
 build
 main.spec
+resources/.env

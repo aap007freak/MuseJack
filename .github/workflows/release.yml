@@ -43,7 +43,7 @@ jobs:
             #ASSET_MIME: application/zip
           - os: windows-latest
             TARGET: windows
-            CMD_BUILD: poetry run pyinstaller -F -n MuseJack musejack/main.py # option -i resources/clipster.ico omitted
+            CMD_BUILD: poetry run pyinstaller -specpath MuseJack.spec -n MuseJack  # option -i resources/clipster.ico omitted
             OUT_FILE_NAME: MuseJack.exe
             ASSET_MIME: application/vnd.microsoft.portable-executable
     steps:
