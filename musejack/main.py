@@ -23,7 +23,7 @@ if __name__ == "__main__":
     except OSError:
         Log.error("Couldn't load JACK audio connection kit. Make sure it is installed!")
         quit()
-    Log.info("Jack audio connection kit found succesfully")
+    Log.info("JACK audio connection kit found succesfully")
 
     #todo this is OC specific
     prefs = util.load_musescore_ini(Path("C:\\Users\\Anton\\AppData\\Roaming\\MuseScore\\musescore3.ini"))

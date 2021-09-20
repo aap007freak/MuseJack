@@ -6,17 +6,19 @@ MuseJack is an add-on plugin and standalone program for Musescore that allows vi
 ## Installation
 **Warning**! MuseJack is currently in *alpha,* there will be new breaking features all the time, and expect bugs!
 
-1. Download the most recent executable from the Releases page.
-2. Install the Jack Binaries for your Operating System.
-3. Open Musecore, go into Preferences > I/O and 
+1. Download and install [JACK audio connection kit](https://jackaudio.org/downloads/) for your operating system.
+2. Download the most recent executable from the [Releases](https://github.com/aap007freak/MuseJack/releases) page.
+3. Open Musecore, go into Preferences > I/O and make sure to enable the JACK audio server, including all the options
+ **except timebase master**.
+4. Run the MuseJack executable and point it to *.mjck* file (see below). 
 
 ## Usage
 
 ### MuseJack Musescore Plugin
 MuseJack is a standalone program that runs alongside Musescore. To know which video files to sync to which parts of the score 
-and the exact timings, MuseJack needs files ending in *.mjck*. You can create these seperately, but the preferred way 
+and the exact timings, MuseJack needs files ending in *.mjck*. You can create these manually, but the preferred way 
 to generate them is using the MuseJack Musescore Plugin. MuseJack will automatically try to install this Musescore plugin
-when you first run it. 
+when you first run the program. 
  
 Check if the plugin is installed correctly by navigating to Plugins > Plugin Manager...
 
